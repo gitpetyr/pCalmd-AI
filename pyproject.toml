@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pcalmd-ai"
+version = "0.1.0"
+description = "AI-assisted JavaScript deobfuscation tool"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = [
+    "tree-sitter>=0.23,<1.0",
+    "tree-sitter-javascript>=0.23,<1.0",
+    "litellm>=1.50",
+    "click>=8.1",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "rich>=13.0",
+]
+
+[project.scripts]
+pcalmd = "pcalmd.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pcalmd"]

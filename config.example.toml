@@ -1,0 +1,27 @@
+[ai]
+provider = "anthropic"
+model = "claude-sonnet-4-20250514"
+api_key = ""
+# api_base = "http://localhost:8080/v1"  # only for custom provider
+temperature = 0.2
+max_tokens = 8192
+
+[chunking]
+max_tokens = 3000
+context_tokens = 1000
+
+[pipeline]
+simplify = true
+rename = true
+comment = true
+explain = false
+verify = true
+max_retries = 2
+
+[rate_limit]
+max_concurrent = 3
+requests_per_minute = 50
+
+[output]
+format = "file"
+suffix = ".deobfuscated"
