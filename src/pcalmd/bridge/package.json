@@ -1,0 +1,1 @@
+{"private": true, "dependencies": {"@babel/parser": "^7.27", "@babel/traverse": "^7.27", "@babel/generator": "^7.27", "recast": "^0.23"}}

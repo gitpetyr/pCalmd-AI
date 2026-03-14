@@ -25,6 +25,7 @@ from pcalmd.transforms.comment import CommentTransform
 from pcalmd.transforms.explain import ExplainTransform
 from pcalmd.transforms.rename import RenameTransform
 from pcalmd.transforms.simplify import SimplifyTransform
+from pcalmd.bridge.node_bridge import NodeBridge
 from pcalmd.verification.ast_verify import ASTVerifier
 from pcalmd.verification.rename_map import GlobalRenameMap
 
@@ -71,6 +72,7 @@ class Pipeline:
         )
         self._verifier = ASTVerifier()
         self._rename_map = GlobalRenameMap()
+        self._bridge: NodeBridge | None = None
 
     # ------------------------------------------------------------------
     # Public API
@@ -124,6 +126,12 @@ class Pipeline:
             max_concurrent=self.settings.rate_limit.max_concurrent,
             requests_per_minute=self.settings.rate_limit.requests_per_minute,
         )
+
+        # Start Node bridge for scope-aware rename / deep verification.
+        try:
+            self._bridge = NodeBridge()
+        except RuntimeError:
+            self._bridge = None
 
         # 1. Parse
         units = self._parser.extract_units(source)
@@ -201,9 +209,19 @@ class Pipeline:
         # 5. Reassemble
         reassembled = self._reassemble(chunks, processed, source)
 
-        # 6. Final rename consistency pass.
+        # 6. Final rename consistency pass — scope-aware if bridge available.
         if cfg.rename and len(self._rename_map) > 0:
-            reassembled = self._rename_map.apply_to_source(reassembled)
+            if self._bridge:
+                reassembled, _ = self._bridge.safe_rename(
+                    reassembled, self._rename_map.mapping
+                )
+            else:
+                reassembled = self._rename_map.apply_to_source(reassembled)
+
+        # Shut down the bridge.
+        if self._bridge:
+            self._bridge.close()
+            self._bridge = None
 
         return PipelineResult(
             code=reassembled,
@@ -280,7 +298,17 @@ class Pipeline:
     def _verify_transform(
         self, task: str, original: str, transformed: str
     ) -> bool:
-        """Run the appropriate verification for *task*."""
+        """Run the appropriate verification for *task*.
+
+        Prefers the Node.js bridge (deep AST comparison) when available,
+        falls back to the lightweight tree-sitter verifier otherwise.
+        """
+        if self._bridge:
+            try:
+                return self._bridge.verify_ast(original, transformed, task).ok
+            except RuntimeError:
+                pass  # Fall through to tree-sitter verifier.
+
         match task:
             case "simplify":
                 return self._verifier.verify_simplify(original, transformed).ok
